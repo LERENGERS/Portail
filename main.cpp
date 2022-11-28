@@ -1,22 +1,11 @@
-// Basic demo for accelerometer readings from Adafruit MPU6050
-
-// ESP32 Guide: https://RandomNerdTutorials.com/esp32-mpu-6050-accelerometer-gyroscope-arduino/
-// ESP8266 Guide: https://RandomNerdTutorials.com/esp8266-nodemcu-mpu-6050-accelerometer-gyroscope-arduino/
-// Arduino Guide: https://RandomNerdTutorials.com/arduino-mpu-6050-accelerometer-gyroscope/
-
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
 
-const char* ssid = "freebox_VVTPQT";
-const char* password = "EmmaMichel84";
-
-String serverName = "https://maker.ifttt.com/trigger/Portail_fermer/json/with/key/NrxNUja9scTjvhzN1eiho";
-String serverName2 = "https://maker.ifttt.com/trigger/Portail_ouvert/json/with/key/NrxNUja9scTjvhzN1eiho";
-
-unsigned long lastTime = 0;
+extern void wifi_connect();
+extern void PAGE_WEB(String servername);  
 
 unsigned long timerDelay = 5000;
 
@@ -27,7 +16,7 @@ Adafruit_MPU6050 mpu;
 void setup(void) {
   Serial.begin(115200);
   while (!Serial)
-    delay(10); // will pause Zero, Leonardo, etc until serial console opens
+    delay(10);
 
   Serial.println("Adafruit MPU6050 test!");
 
@@ -42,147 +31,68 @@ void setup(void) {
 
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
   Serial.print("Accelerometer range set to: ");
-  switch (mpu.getAccelerometerRange()) {
-  case MPU6050_RANGE_2_G:
-    Serial.println("+-2G");
-    break;
-  case MPU6050_RANGE_4_G:
-    Serial.println("+-4G");
-    break;
-  case MPU6050_RANGE_8_G:
-    Serial.println("+-8G");
-    break;
-  case MPU6050_RANGE_16_G:
-    Serial.println("+-16G");
-    break;
-  }
+
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   Serial.print("Gyro range set to: ");
-  switch (mpu.getGyroRange()) {
-  case MPU6050_RANGE_250_DEG:
-    Serial.println("+- 250 deg/s");
-    break;
-  case MPU6050_RANGE_500_DEG:
-    Serial.println("+- 500 deg/s");
-    break;
-  case MPU6050_RANGE_1000_DEG:
-    Serial.println("+- 1000 deg/s");
-    break;
-  case MPU6050_RANGE_2000_DEG:
-    Serial.println("+- 2000 deg/s");
-    break;
-  }
 
   mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
   Serial.print("Filter bandwidth set to: ");
-  switch (mpu.getFilterBandwidth()) {
-  case MPU6050_BAND_260_HZ:
-    Serial.println("260 Hz");
-    break;
-  case MPU6050_BAND_184_HZ:
-    Serial.println("184 Hz");
-    break;
-  case MPU6050_BAND_94_HZ:
-    Serial.println("94 Hz");
-    break;
-  case MPU6050_BAND_44_HZ:
-    Serial.println("44 Hz");
-    break;
-  case MPU6050_BAND_21_HZ:
-    Serial.println("21 Hz");
-    break;
-  case MPU6050_BAND_10_HZ:
-    Serial.println("10 Hz");
-    break;
-  case MPU6050_BAND_5_HZ:
-    Serial.println("5 Hz");
-    break;
-  }
 
   Serial.println("");
   delay(1000);
-//WIFI
-  WiFi.mode(WIFI_STA); //Optional
-    WiFi.begin(ssid, password);
-    Serial.println("\nConnecting");
+  //WIFI
+  wifi_connect();
 
-    while(WiFi.status() != WL_CONNECTED){
-        Serial.print(".");
-        delay(100);
-    }
-
-    Serial.println("\nConnected to the WiFi network");
-    Serial.print("Local ESP32 IP: ");
-    Serial.println(WiFi.localIP());
-
-
+  mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
+  mpu.setMotionDetectionThreshold(1);
+  mpu.setMotionDetectionDuration(20);
+  mpu.setInterruptPinLatch(false);	// Keep it latched.  Will turn off when reinitialized.
+  mpu.setInterruptPinPolarity(false);
+  mpu.setMotionInterrupt(true);
 }
 
 void loop() {
   /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  if(mpu.getMotionInterruptStatus()) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
 
-  /* Print out the values */
-  Serial.print("Acceleration X: ");
-  Serial.print(a.acceleration.x);
-  Serial.print(", Y: ");
-  Serial.print(a.acceleration.y);
-  Serial.print(", Z: ");
-  Serial.print(a.acceleration.z);
-  Serial.println(" m/s^2");
+    /* Print out the values */
+    Serial.print("Acceleration X: ");
+    Serial.print(a.acceleration.x);
+    Serial.print(", Y: ");
+    Serial.print(a.acceleration.y);
 
-  Serial.print("Rotation X: ");
-  Serial.print(g.gyro.x);
-  Serial.print(", Y: ");
-  Serial.print(g.gyro.y);
-  Serial.print(", Z: ");
-  Serial.print(g.gyro.z);
-  Serial.println(" rad/s");
+    Serial.print("Rotation X: ");
+    Serial.print(g.gyro.x);
+    Serial.print(", Y: ");
+    Serial.print(g.gyro.y);
 
-  Serial.print("Temperature: ");
-  Serial.print(temp.temperature);
-  Serial.println(" degC");
+    Serial.print("Temperature: ");
+    Serial.print(temp.temperature);
+    Serial.println(" degC");
 
-  Serial.println("");
-  
-  delay(1000);
+    Serial.println("");
+    
+    delay(1000);
 
-  if(etat==0){
-    if (a.acceleration.x>=5){
-      HTTPClient http;
+    if(etat==0){
+      if (a.acceleration.x>=5){
 
-      String serverPath = serverName + "?temperature=24.37";  
-      http.begin(serverPath.c_str());
-  
-      int httpResponseCode = http.GET();
-        
-      // Free resources
-      http.end();
-      lastTime = millis();
+        PAGE_WEB("https://maker.ifttt.com/trigger/Portail_fermer/json/with/key/NrxNUja9scTjvhzN1eiho");
 
-      etat=1;
-      delay(1000);
+        etat=1;
+        delay(1000);
+      }
     }
-  }
-  if(etat==1){
-    if (a.acceleration.x<=5){
-      HTTPClient http;
+    if(etat==1){
+      if (a.acceleration.x<=5){
 
-      String serverPath = serverName2 + "?temperature=24.37";
-        
-        
-      http.begin(serverPath.c_str());
-  
-      int httpResponseCode = http.GET();
-        
-      // Free resources
-      http.end();
+        PAGE_WEB("https://maker.ifttt.com/trigger/Portail_ouvert/json/with/key/NrxNUja9scTjvhzN1eiho");
 
-      lastTime = millis();
-
-      etat=0;
-      delay(1000);
+        etat=0;
+        delay(1000);
+      }
     }
   }
 }
