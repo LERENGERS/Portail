@@ -1,3 +1,5 @@
+//MICHEL Bastien #LERENGERS
+
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
@@ -13,6 +15,8 @@ int etat=0;
 
 Adafruit_MPU6050 mpu;
 
+RTC_DATA_ATTR int conteur = 0;
+
 void setup(void) {
   Serial.begin(115200);
   while (!Serial)
@@ -20,7 +24,6 @@ void setup(void) {
 
   Serial.println("Adafruit MPU6050 test!");
 
-  // Try to initialize!
   if (!mpu.begin()) {
     Serial.println("Failed to find MPU6050 chip");
     while (1) {
@@ -35,64 +38,74 @@ void setup(void) {
   mpu.setGyroRange(MPU6050_RANGE_500_DEG);
   Serial.print("Gyro range set to: ");
 
-  mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
-  Serial.print("Filter bandwidth set to: ");
+ // mpu.setFilterBandwidth(MPU6050_BAND_5_HZ);
+ // Serial.print("Filter bandwidth set to: ");
 
   Serial.println("");
   delay(1000);
-  //WIFI
-  wifi_connect();
 
   mpu.setHighPassFilter(MPU6050_HIGHPASS_0_63_HZ);
   mpu.setMotionDetectionThreshold(1);
   mpu.setMotionDetectionDuration(20);
-  mpu.setInterruptPinLatch(false);	// Keep it latched.  Will turn off when reinitialized.
+  mpu.setInterruptPinLatch(true);
   mpu.setInterruptPinPolarity(false);
   mpu.setMotionInterrupt(true);
 }
 
 void loop() {
-  /* Get new sensor events with the readings */
-  if(mpu.getMotionInterruptStatus()) {
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-
-    /* Print out the values */
-    Serial.print("Acceleration X: ");
-    Serial.print(a.acceleration.x);
-    Serial.print(", Y: ");
-    Serial.print(a.acceleration.y);
-
-    Serial.print("Rotation X: ");
-    Serial.print(g.gyro.x);
-    Serial.print(", Y: ");
-    Serial.print(g.gyro.y);
-
-    Serial.print("Temperature: ");
-    Serial.print(temp.temperature);
-    Serial.println(" degC");
-
-    Serial.println("");
-    
-    delay(1000);
-
-    if(etat==0){
-      if (a.acceleration.x>=5){
-
-        PAGE_WEB("https://maker.ifttt.com/trigger/Portail_fermer/json/with/key/NrxNUja9scTjvhzN1eiho");
-
-        etat=1;
-        delay(1000);
-      }
-    }
-    if(etat==1){
-      if (a.acceleration.x<=5){
-
-        PAGE_WEB("https://maker.ifttt.com/trigger/Portail_ouvert/json/with/key/NrxNUja9scTjvhzN1eiho");
-
-        etat=0;
-        delay(1000);
-      }
-    }
+  if (conteur == 0){
+    conteur = 1;
+    esp_sleep_enable_ext0_wakeup(GPIO_NUM_27,HIGH);
+    esp_deep_sleep_start();
   }
+  else{
+    if(mpu.getMotionInterruptStatus()) {
+      sensors_event_t a, g, temp;
+      mpu.getEvent(&a, &g, &temp);
+
+      /* Print out the values */
+      Serial.print("Acceleration X: ");
+      Serial.print(a.acceleration.x);
+      Serial.print(", Y: ");
+      Serial.print(a.acceleration.y);
+
+      Serial.print("Rotation X: ");
+      Serial.print(g.gyro.x);
+      Serial.print(", Y: ");
+      Serial.print(g.gyro.y);
+
+      Serial.print("Temperature: ");
+      Serial.print(temp.temperature);
+      Serial.println(" degC");
+
+      Serial.println("");
+      
+      delay(1000);
+
+      if(etat==0){
+        if (a.acceleration.x<=5){
+
+          wifi_connect();
+          PAGE_WEB("https://maker.ifttt.com/trigger/Portail_ouvert/json/with/key/NrxNUja9scTjvhzN1eiho");
+          etat=1;
+          delay(1000);
+        }
+        else{
+          esp_sleep_enable_ext0_wakeup(GPIO_NUM_27,HIGH);
+          esp_deep_sleep_start();
+        }
+      }
+      if(etat==1){
+        if (a.acceleration.x>=5){
+
+          PAGE_WEB("https://maker.ifttt.com/trigger/Portail_fermer/json/with/key/NrxNUja9scTjvhzN1eiho");
+
+          etat=0;
+
+          esp_sleep_enable_ext0_wakeup(GPIO_NUM_27,HIGH);
+          esp_deep_sleep_start();
+        }
+      }
+    }
+  }  
 }
